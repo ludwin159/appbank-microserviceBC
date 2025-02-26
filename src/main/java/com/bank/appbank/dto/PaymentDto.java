@@ -11,6 +11,9 @@ public class PaymentDto {
     private String idProductCredit;
     private LocalDateTime datePayment;
     private TypeCreditProduct typeCreditProduct;
+    private Integer monthCorresponding;
+    private Integer yearCorresponding;
+    private Double penaltyFee;
 
     public PaymentDto() {
         this.datePayment = LocalDateTime.now();

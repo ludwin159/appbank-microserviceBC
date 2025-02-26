@@ -1,6 +1,7 @@
 package com.bank.appbank.service.impl;
 
 import com.bank.appbank.client.MovementServiceClient;
+import com.bank.appbank.dto.PaymentDto;
 import com.bank.appbank.exceptions.ClientNotFoundException;
 import com.bank.appbank.exceptions.IneligibleClientException;
 import com.bank.appbank.exceptions.LimitAccountsException;
@@ -12,6 +13,8 @@ import com.bank.appbank.model.Credit;
 import com.bank.appbank.model.CreditCard;
 import com.bank.appbank.repository.BankAccountRepository;
 import com.bank.appbank.repository.CreditCardRepository;
+import com.bank.appbank.repository.CreditRepository;
+import com.bank.appbank.service.CreditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -48,10 +55,15 @@ class BankAccountServiceImpTest {
     @Mock
     private ClientServiceImpl clientService;
     @Mock
+    private CreditService creditService;
+    @Mock
     private MovementServiceClient movementService;
+    @Mock
+    private Clock clock;
 
     private BankAccount bankAccount1, bankAccount2, bankAccount3;
     private Client personalClient, businessClient, holderAccount;
+    private PaymentDto payment1;
 
     @BeforeEach
     void setUp() {
@@ -100,6 +112,13 @@ class BankAccountServiceImpTest {
                 accountHolders);
         bankAccount3.setId("IDbank003");
 
+        payment1 = new PaymentDto();
+        payment1.setId("PAYMENT001");
+        payment1.setIdProductCredit("CREDIT001");
+        payment1.setAmount(30.0);
+        payment1.setMonthCorresponding(1);
+        payment1.setYearCorresponding(2025);
+        payment1.setTypeCreditProduct(PaymentDto.TypeCreditProduct.CREDIT);
 
         personalClient = new Client();
         personalClient.setId("clientN001");
@@ -152,6 +171,8 @@ class BankAccountServiceImpTest {
         String idBankAccount = "IDbank002";
         String idClient = "clientN002";
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(businessClient));
         when(clientService.findAllClientsById(List.of("idholder001"))).thenReturn(Flux.just(holderAccount));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
@@ -172,6 +193,8 @@ class BankAccountServiceImpTest {
         String idBankAccount = "IDbank002";
         String idClient = "clientN002";
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(businessClient));
         when(clientService.findAllClientsById(List.of("idholder001"))).thenReturn(Flux.empty());
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
@@ -221,6 +244,8 @@ class BankAccountServiceImpTest {
         existingAccount.setId(idBankAccount);
 
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(businessClient));
         when(clientService.findAllClientsById(List.of("idholder001"))).thenReturn(Flux.just(holderAccount));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(existingAccount));
@@ -241,6 +266,8 @@ class BankAccountServiceImpTest {
         String idClient = "clientN002";
         bankAccount2.setAccountHolders(Collections.emptyList());
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(businessClient));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         // When
@@ -258,6 +285,8 @@ class BankAccountServiceImpTest {
         String idClient = "clientN002";
         bankAccount1.setIdClient(idClient);
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(businessClient));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         // When
@@ -288,6 +317,8 @@ class BankAccountServiceImpTest {
         bankAccount3.setId("IDbank001");
 
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(bankAccount1));
         // When
@@ -327,6 +358,8 @@ class BankAccountServiceImpTest {
         bankAccount3.setId("IDbank001");
 
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findAllClientsById(List.of("clientN001"))).thenReturn(Flux.just(personalClient));
@@ -360,6 +393,8 @@ class BankAccountServiceImpTest {
 
         bankAccount2.setIdClient(idClient);
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
         when(bankAccountRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(bankAccount2));
         // When
@@ -504,15 +539,17 @@ class BankAccountServiceImpTest {
     @Test
     @DisplayName("Create saving account with personal vip client")
     void createVipClientTest() {
+        String idClient = "clientN001";
         CreditCard creditCard1 = new CreditCard();
         creditCard1.setId("CREDIT_CARD001");
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
-        creditCard1.setInterestRate(3.0);
         personalClient.setTypeClient(PERSONAL_VIP_CLIENT);
         bankAccount1.setIdClient(personalClient.getId());
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(personalClient.getId())).thenReturn(Mono.just(personalClient));
         when(creditCardRepository.findAllByIdClient(personalClient.getId())).thenReturn(Flux.just(creditCard1));
         when(bankAccountRepository.findAllByIdClient(personalClient.getId()))
@@ -533,15 +570,17 @@ class BankAccountServiceImpTest {
     @Test
     @DisplayName("Create saving account with personal vip without credit card")
     void createClientVipWithoutCreditCardTest() {
+        String idClient = "clientN001";
         CreditCard creditCard1 = new CreditCard();
         creditCard1.setId("CREDIT_CARD001");
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
-        creditCard1.setInterestRate(3.0);
         personalClient.setTypeClient(PERSONAL_VIP_CLIENT);
         bankAccount1.setIdClient(personalClient.getId());
         // Given
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientService.findById(personalClient.getId())).thenReturn(Mono.just(personalClient));
         when(creditCardRepository.findAllByIdClient(personalClient.getId())).thenReturn(Flux.empty());
         when(bankAccountRepository.findAllByIdClient(personalClient.getId()))
@@ -554,5 +593,115 @@ class BankAccountServiceImpTest {
                 .verify();
     }
 
-//    IneligibleClientException
+    @Test
+    @DisplayName("Create bank account with due date in credit card")
+    void createBankAccountWithDueDateTest() {
+        String idClient = "clientN001";
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+        CreditCard creditCard1 = new CreditCard();
+        creditCard1.setId("CREDIT_CARD001");
+        creditCard1.setIdClient("clientN001");
+        creditCard1.setLimitCredit(1000.0);
+        creditCard1.setAvailableBalance(500.0);
+        personalClient.setTypeClient(PERSONAL_VIP_CLIENT);
+        bankAccount1.setIdClient(personalClient.getId());
+        creditCard1.setTotalDebt(1000.0);
+        creditCard1.setDueDate(LocalDate.of(2025, 1, 5));
+        // Given
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
+        when(clientService.findById(personalClient.getId())).thenReturn(Mono.just(personalClient));
+        when(bankAccountRepository.findAllByIdClient(personalClient.getId()))
+                .thenReturn(Flux.empty());
+
+        Mono<BankAccount> bankAccountMono = bankAccountService.create(bankAccount1);
+        // Then
+        StepVerifier.create(bankAccountMono)
+                .expectError(IneligibleClientException.class)
+                .verify();
+    }
+
+    @Test
+    @DisplayName("Create bank account with due date in credit")
+    void createBankAccountWithDueDateCreditTest() {
+        String idClient = "clientN001";
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+        CreditCard creditCard1 = new CreditCard();
+        creditCard1.setId("CREDIT_CARD001");
+        creditCard1.setIdClient("clientN001");
+        creditCard1.setLimitCredit(1000.0);
+        creditCard1.setAvailableBalance(500.0);
+        personalClient.setTypeClient(PERSONAL_VIP_CLIENT);
+        bankAccount1.setIdClient(personalClient.getId());
+        creditCard1.setTotalDebt(1000.0);
+        creditCard1.setDueDate(LocalDate.of(2025, 1, 5));
+        payment1 = new PaymentDto();
+        payment1.setMonthCorresponding(12);
+        payment1.setYearCorresponding(2024);
+        payment1.setTypeCreditProduct(PaymentDto.TypeCreditProduct.CREDIT);
+
+        Credit credit1 = new Credit(
+                "clientN001",
+                500.0,
+                200.0,
+                0.15,
+                LocalDate.of(2024, 11, 5),
+                LocalDate.of(2024, 12, 2),
+                12,
+                0.0
+        );
+        credit1.setId("CREDIT001");
+        // Given
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient))
+                .thenReturn(Flux.just(credit1));
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
+        when(clientService.findById(personalClient.getId())).thenReturn(Mono.just(personalClient));
+        when(bankAccountRepository.findAllByIdClient(personalClient.getId()))
+                .thenReturn(Flux.empty());
+
+        Mono<BankAccount> bankAccountMono = bankAccountService.create(bankAccount1);
+        // Then
+        StepVerifier.create(bankAccountMono)
+                .expectError(IneligibleClientException.class)
+                .verify();
+    }
+
+    @Test
+    @DisplayName("Find by id bank account without movements")
+    public void findByIdWithoutMovementsTest() {
+        // Given
+        when(bankAccountRepository.findById(bankAccount1.getId())).thenReturn(Mono.just(bankAccount1));
+        // When
+        Mono<BankAccount> bankAccountMono = bankAccountService.findByIdWithoutMovements(bankAccount1.getId());
+        // Then
+        StepVerifier.create(bankAccountMono)
+                .assertNext(bankAccount -> {
+                    assertThat(bankAccount.getMovements().size()).isEqualTo(0);
+                })
+                .verifyComplete();
+        verify(bankAccountRepository).findById(bankAccount1.getId());
+    }
+
+    @Test
+    @DisplayName("Find by id bank account without movements and error")
+    public void findByIdWithoutMovementsErrorTest() {
+        // Given
+        when(bankAccountRepository.findById(bankAccount1.getId())).thenReturn(Mono.empty());
+        // When
+        Mono<BankAccount> bankAccountMono = bankAccountService.findByIdWithoutMovements(bankAccount1.getId());
+        // Then
+        StepVerifier.create(bankAccountMono)
+                .expectError(ResourceNotFoundException.class)
+                .verify();
+        verify(bankAccountRepository).findById(bankAccount1.getId());
+    }
+
 }

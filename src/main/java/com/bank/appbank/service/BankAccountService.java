@@ -9,4 +9,5 @@ public interface BankAccountService extends ServiceT<BankAccount, String>{
     Mono<BankAccount> update(String id, BankAccount bankAccount);
     Flux<BankAccount> findBankAccountsByIdClient(String idClient);
     Flux<BankAccount> findBankAccountsByIdClientWithAllMovementsSortedByDate(String idClient);
+    Mono<BankAccount> findByIdWithoutMovements(String idBankAccount);
 }

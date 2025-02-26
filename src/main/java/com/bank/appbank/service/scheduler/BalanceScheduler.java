@@ -38,7 +38,7 @@ public class BalanceScheduler {
     @PostConstruct
     public void startRecordDailyBalance() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime hourExecution = now.withHour(23).withMinute(59).withSecond(0);
+        LocalDateTime hourExecution = now.withHour(23).withMinute(30).withSecond(0);
         if (now.isAfter(hourExecution)) {
             log.info("The execution of record daily balance pass for next day");
             hourExecution = hourExecution.plusDays(1);

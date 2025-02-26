@@ -4,13 +4,18 @@ import com.bank.appbank.dto.ConsumptionDto;
 import com.bank.appbank.dto.PaymentDto;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 
@@ -29,8 +34,21 @@ public class CreditCard extends BankProduct {
 
     @NotNull
     @Min(0)
-    @Max(1)
-    private Double interestRate;
+    private Double totalDebt;
+
+    @NotNull
+    @Pattern(regexp = "^(20|13)$", message = "The billing date can be 20 or 13")
+    private Integer numberBillingDate;
+
+    @NotNull
+    @Pattern(regexp = "^(5|28)$", message = "The payment due date can be 5 or 28")
+    private Integer numberDueDate;
+
+    private LocalDate dueDate;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
+
     @Transient
     private List<ConsumptionDto> consumptions;
     @Transient

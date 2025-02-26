@@ -11,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -30,7 +32,11 @@ class CreditControllerTest {
                 "clientN001",
                 500.0,
                 200.0,
-                15.0
+                0.15,
+                LocalDate.now(),
+                LocalDate.now(),
+                12,
+                0.0
         );
         credit1.setId("CREDIT001");
 

@@ -14,6 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import javax.management.ObjectName;
 import java.time.*;
 import java.util.Collections;
 import java.util.List;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.*;
 import static org.assertj.core.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("unchecked")
 class ReportServiceImpTest {
 
     @InjectMocks
@@ -51,7 +53,11 @@ class ReportServiceImpTest {
 
     @BeforeEach
     void setUp() {
-
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
         bankAccount1 = new BankAccount("clientN001",
                 1500.0,
                 BankAccount.TypeBankAccount.SAVING_ACCOUNT,
@@ -63,6 +69,7 @@ class ReportServiceImpTest {
                 5,
                 Collections.emptyList(),
                 Collections.emptyList());
+        bankAccount1.setCreatedAt(LocalDateTime.now(clock).minusDays(2));
         bankAccount1.setId("IDbank001");
 
         bankAccount2 = new BankAccount("clientN002",
@@ -77,12 +84,17 @@ class ReportServiceImpTest {
                 Collections.emptyList(),
                 Collections.emptyList());
         bankAccount2.setId("IDbank002");
+        bankAccount2.setCreatedAt(LocalDateTime.now(clock).minusDays(3));
 
         credit1 = new Credit(
                 "clientN001",
                 500.0,
                 200.0,
-                15.0
+                0.15,
+                LocalDate.now(),
+                LocalDate.now(),
+                12,
+                0.0
         );
         credit1.setId("CREDIT001");
 
@@ -91,7 +103,6 @@ class ReportServiceImpTest {
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
-        creditCard1.setInterestRate(3.0);
 
         personalClient = new Client();
         personalClient.setId("clientN001");
@@ -334,13 +345,47 @@ class ReportServiceImpTest {
         StepVerifier.create(report)
                 .assertNext(result -> {
                     assertNotNull(result);
-                    Map<String, Object> reportMap = result;
-                    assertThat(reportMap.get("currentAccount")).isEqualTo(2.0);
-                    assertThat(reportMap.get("fixedTermAccount")).isEqualTo(0.0);
-                    assertThat(reportMap.get("savingAccount")).isEqualTo(15.0);
+                    assertThat(result.get("currentAccount")).isEqualTo(2.0);
+                    assertThat(result.get("fixedTermAccount")).isEqualTo(0.0);
+                    assertThat(result.get("savingAccount")).isEqualTo(15.0);
 
                     System.out.println(result);
                 })
                 .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Generate report general of all bank products in range date")
+    public void generateReportCompleteAndGeneralByProductInRangeDateTest() {
+        // Given
+        LocalDate from = LocalDate.now().minusDays(6);
+        LocalDate to = LocalDate.now().minusDays(1);
+        Instant fromInstant = from.atStartOfDay(clock.getZone()).toInstant();
+        Instant toInstant = to.atTime(23, 59, 59).atZone(clock.getZone()).toInstant();
+        when(bankAccountRepository
+                .findAllByCreatedAtBetween(fromInstant, toInstant)).thenReturn(Flux.just(bankAccount1, bankAccount2));
+        when(creditCardRepository
+                .findAllByCreatedAtBetween(fromInstant, toInstant)).thenReturn(Flux.just(creditCard1));
+        when(creditRepository
+                .findAllByCreatedAtBetween(fromInstant, toInstant)).thenReturn(Flux.just(credit1));
+        // When
+        Mono<Map<String, Object>> result = reportService
+                .generateReportCompleteAndGeneralByProductInRangeDate(fromInstant, toInstant);
+        // Then
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertNotNull(response);
+                    Map<String, Object> data = (Map<String, Object>)response.get("bankAccounts");
+                    assertThat(data.get("total")).isEqualTo(2);
+                    List<BankAccount> bankAccounts = null;
+                    bankAccounts = (List<BankAccount>)data.get("savingAccounts");
+                    assertThat(bankAccounts.size()).isEqualTo(1);
+                    bankAccounts = (List<BankAccount>)data.get("fixedTermAccounts");
+                    assertEquals(bankAccounts.size(), 0);
+                    bankAccounts = (List<BankAccount>)data.get("currentAccounts");
+                    assertEquals(bankAccounts.size(), 1);
+                })
+                .verifyComplete();
+
     }
 }

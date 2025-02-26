@@ -6,16 +6,23 @@ import com.bank.appbank.factory.RepositoryFactory;
 import com.bank.appbank.model.BankAccount;
 import com.bank.appbank.model.Client;
 import com.bank.appbank.dto.MovementDto;
+import com.bank.appbank.model.Credit;
+import com.bank.appbank.model.CreditCard;
 import com.bank.appbank.repository.BankAccountRepository;
 import com.bank.appbank.repository.CreditCardRepository;
+import com.bank.appbank.repository.CreditRepository;
 import com.bank.appbank.service.BankAccountService;
 import com.bank.appbank.service.ClientService;
+import com.bank.appbank.service.CreditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,15 +39,21 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
     private final ClientService clientService;
     private final MovementServiceClient movementServiceClient;
     private final CreditCardRepository creditCardRepository;
+    private final CreditService creditService;
+    private Clock clock;
 
     public BankAccountServiceImp(RepositoryFactory repositoryFactory,
                                  ClientService clientService,
                                  MovementServiceClient movementServiceClient,
-                                 CreditCardRepository creditCardRepository) {
+                                 CreditCardRepository creditCardRepository,
+                                 Clock clock,
+                                 CreditService creditService) {
         super(repositoryFactory);
         this.clientService = clientService;
         this.movementServiceClient = movementServiceClient;
         this.creditCardRepository = creditCardRepository;
+        this.creditService = creditService;
+        this.clock = clock;
     }
 
 
@@ -48,6 +61,15 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
     public Mono<BankAccount> findById(String id) {
         return super.findById(id)
                 .flatMap(this::uploadMovementsAndTransfers)
+                .onErrorResume(error -> {
+                    log.error(error.getMessage());
+                    return Mono.error(error);
+                });
+    }
+
+    @Override
+    public Mono<BankAccount> findByIdWithoutMovements(String idBankAccount) {
+        return super.findById(idBankAccount)
                 .onErrorResume(error -> {
                     log.error(error.getMessage());
                     return Mono.error(error);
@@ -68,7 +90,8 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
     public Mono<BankAccount> create(BankAccount bankAccount) {
 
         Mono<Client> clientFound = clientService.findById(bankAccount.getIdClient())
-                .flatMap(client -> validateClientAndBankAccount(bankAccount, client))
+                .flatMap(client -> validateIfClientHasOverDueCredit(client.getId())
+                                        .flatMap(isValid -> validateClientAndBankAccount(bankAccount, client)))
                 .onErrorResume(ResourceNotFoundException.class, e ->
                         Mono.error(new ResourceNotFoundException(
                                 "The client with id " + bankAccount.getIdClient() + " doesn't exist")));
@@ -93,8 +116,69 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
                     log.info("Bank account created! " + bankAccount);
                     return super.create(bankAccount);
                 });
-}
+    }
 
+    private Mono<Boolean> validateIfClientHasOverDueCredit(String idClient) {
+        return Mono.zip(
+                findAllCreditCardsByIdClient(idClient).onErrorResume(ex -> Mono.just(Collections.emptyList())),
+                findAllCreditsByIdClient(idClient).onErrorResume(ex -> Mono.just(Collections.emptyList()))
+                )
+                .flatMap(tuple -> {
+                    List<CreditCard> creditCards = tuple.getT1();
+                    List<Credit> credits = tuple.getT2();
+
+                    boolean hasOverDueCreditCard = creditCards.stream()
+                            .anyMatch(this::isOverdueCreditCard);
+                    boolean hasOverDueCredit = credits.stream()
+                            .anyMatch(this::isOverdueCreditOnly);
+
+                    if (hasOverDueCredit || hasOverDueCreditCard) {
+                        String message = "The client has an overdue debt";
+                        log.error(message);
+                        return Mono.error(new IneligibleClientException(message));
+                    }
+                    return Mono.just(true);
+                });
+    }
+
+    private Mono<List<CreditCard>> findAllCreditCardsByIdClient(String idClient) {
+        return creditCardRepository.findAllByIdClient(idClient)
+                .collectList()
+                .defaultIfEmpty(Collections.emptyList());
+    }
+
+    private Mono<List<Credit>> findAllCreditsByIdClient(String idClient) {
+        return creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)
+                .collectList()
+                .defaultIfEmpty(Collections.emptyList());
+    }
+
+    private LocalDate getDateLimitExpected(Credit credit, int month, int year) {
+        LocalDate today = LocalDate.now(clock);
+        if (credit.getFirstDatePay().isAfter(today)) {
+            return credit.getFirstDatePay();
+        }
+        LocalDate firstPaymentDate = credit.getFirstDatePay();
+        return LocalDate.of(year, month, firstPaymentDate.getDayOfMonth());
+    }
+
+    private boolean isOverdueCreditCard(CreditCard creditCard) {
+        return creditCard.getDueDate() != null && LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
+    }
+
+    private boolean isOverdueCreditOnly(Credit credit) {
+        LocalDate today = LocalDate.now(clock);
+        int numberMonth = today.getMonthValue();
+        int numberYear = today.getYear();
+
+        boolean hasPaymentInPresentMonth = credit.getPayments().stream()
+                .anyMatch(payment -> payment.getMonthCorresponding() == numberMonth
+                        && payment.getYearCorresponding() == numberYear);
+
+        LocalDate dueDate = getDateLimitExpected(credit, numberMonth, numberYear);
+
+        return today.isAfter(dueDate) && !hasPaymentInPresentMonth;
+    }
 
     private Mono<Client> validateClientAndBankAccount(BankAccount bankAccount, Client client) {
         if (isPersonalVipClientWithSavingAccount(bankAccount, client) ||

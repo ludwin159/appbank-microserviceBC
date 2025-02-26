@@ -55,4 +55,9 @@ public class BankAccountController extends ControllerT<BankAccount, String>{
     public Flux<BankAccount> findBankAccountsByIdClientWithAllMovementsSortedByDate(@PathVariable String idClient) {
         return bankAccountService.findBankAccountsByIdClientWithAllMovementsSortedByDate(idClient);
     }
+
+    @GetMapping("/findByIdWithoutMovements/{idClient}")
+    public Mono<BankAccount> findByIdWithoutMovements(@PathVariable String idClient) {
+        return bankAccountService.findByIdWithoutMovements(idClient);
+    }
 }

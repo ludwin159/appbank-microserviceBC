@@ -10,16 +10,16 @@ import static com.bank.appbank.model.BankAccount.TypeBankAccount.*;
 
 import com.bank.appbank.repository.*;
 import com.bank.appbank.service.ReportService;
+import org.apache.commons.lang3.time.DateParser;
+import org.apache.http.impl.cookie.DateParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -210,4 +210,53 @@ public class ReportServiceImp implements ReportService {
                 .mapToDouble(MovementDto::getCommissionAmount)
                 .sum();
     }
+
+    @Override
+    public Mono<Map<String, Object>> generateReportCompleteAndGeneralByProductInRangeDate(Instant from, Instant to) {
+        Mono<List<BankAccount>> allBankAccountsMono = bankAccountRepository.findAllByCreatedAtBetween(from, to)
+                .collectList()
+                .defaultIfEmpty(Collections.emptyList());
+        Mono<List<CreditCard>> allCreditCardsMono = creditCardRepository.findAllByCreatedAtBetween(from, to)
+                .collectList()
+                .defaultIfEmpty(Collections.emptyList());
+
+        Mono<List<Credit>> allCreditsMono = creditRepository.findAllByCreatedAtBetween(from, to)
+                .collectList()
+                .defaultIfEmpty(Collections.emptyList());
+        return Mono.zip(allBankAccountsMono, allCreditsMono, allCreditCardsMono)
+                .flatMap(tuple -> {
+                    List<BankAccount> bankAccounts = tuple.getT1();
+                    List<Credit> credits = tuple.getT2();
+                    List<CreditCard> creditCards = tuple.getT3();
+
+                    Map<String, Object> response = new HashMap<>();
+                    Map<String, Object> bankAccountsResponse = new HashMap<>();
+                    Map<String, Object> creditCardsResponse = new HashMap<>();
+                    Map<String, Object> creditsResponse = new HashMap<>();
+
+                    bankAccountsResponse.put("total", bankAccounts.size());
+                    bankAccountsResponse.put("savingAccounts", getBankAccountByType(bankAccounts, SAVING_ACCOUNT));
+                    bankAccountsResponse.put("fixedTermAccounts", getBankAccountByType(bankAccounts, FIXED_TERM_ACCOUNT));
+                    bankAccountsResponse.put("currentAccounts", getBankAccountByType(bankAccounts, CURRENT_ACCOUNT));
+                    response.put("bankAccounts", bankAccountsResponse);
+
+                    creditCardsResponse.put("total", creditCards.size());
+                    creditCardsResponse.put("creditCards", creditCards);
+                    response.put("creditCards", creditCardsResponse);
+
+                    creditsResponse.put("total", credits.size());
+                    creditsResponse.put("credits", credits);
+                    response.put("credits", creditsResponse);
+                    return Mono.just(response);
+                });
+    }
+
+    private List<BankAccount> getBankAccountByType(List<BankAccount> bankAccounts,
+                                                   BankAccount.TypeBankAccount typeBankAccount) {
+        return bankAccounts.stream()
+                .filter(bankAccount -> bankAccount.getTypeBankAccount() == typeBankAccount)
+                .collect(Collectors.toList());
+    }
+
+
 }

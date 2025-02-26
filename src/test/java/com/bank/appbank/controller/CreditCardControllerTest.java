@@ -30,7 +30,6 @@ class CreditCardControllerTest {
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
-        creditCard1.setInterestRate(0.3);
 
         when(creditCardService.update(eq(creditCard1.getId()), any())).thenReturn(Mono.just(creditCard1));
 

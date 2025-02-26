@@ -4,11 +4,13 @@ import com.bank.appbank.dto.BankTransferDto;
 import com.bank.appbank.dto.MovementDto;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import javax.validation.constraints.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,6 +48,8 @@ public class BankAccount extends BankProduct {
     @NotNull
     @Min(value = 0)
     private Double minimumDailyAverageAmount;
+    @CreatedDate
+    private LocalDateTime createdAt;
 
     private List<String> authorizedSignatorits;
     private List<String> accountHolders;
