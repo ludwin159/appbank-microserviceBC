@@ -48,6 +48,7 @@ public class BankAccount extends BankProduct {
     @NotNull
     @Min(value = 0)
     private Double minimumDailyAverageAmount;
+
     @CreatedDate
     private LocalDateTime createdAt;
 
