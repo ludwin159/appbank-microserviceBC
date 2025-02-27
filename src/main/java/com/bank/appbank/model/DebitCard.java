@@ -27,6 +27,10 @@ public class DebitCard {
     @Size(min = 8)
     private String idPrincipalAccount;
 
+    @NotNull
+    @Size(min = 8)
+    private String numberCard;
+
     @Transient
     private List<BankAccount> bankAccounts;
     public DebitCard() {

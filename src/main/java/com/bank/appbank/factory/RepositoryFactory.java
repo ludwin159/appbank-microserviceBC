@@ -25,8 +25,7 @@ public class RepositoryFactory {
                 CreditCard.class, creditCardRepository,
                 Credit.class, creditRepository,
                 BankAccount.class, bankAccountRepository,
-                BankAccountDebitCardRepository.class, bankAccountDebitCardRepository,
-                DebitCardRepository.class, debitCardRepository
+                DebitCard.class, debitCardRepository
         );
     }
 
