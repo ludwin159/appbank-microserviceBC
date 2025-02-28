@@ -18,6 +18,7 @@ public class ConsumptionDto {
     private Integer billingMonth;
     private Integer billingYear;
     private Boolean billed;
+    private LocalDateTime createdAt;
 
     public ConsumptionDto() {
         this.dateConsumption = LocalDateTime.now();

@@ -30,6 +30,9 @@ class CreditCardControllerTest {
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
+        creditCard1.setNumberDueDate("5");
+        creditCard1.setNumberBillingDate("20");
+        creditCard1.setTotalDebt(500.0);
 
         when(creditCardService.update(eq(creditCard1.getId()), any())).thenReturn(Mono.just(creditCard1));
 

@@ -24,10 +24,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
@@ -41,8 +38,6 @@ class CreditServiceImpTest {
 
     @Mock
     private ClientService clientService;
-    @Mock
-    private PaymentServiceClient paymentService;
     @Mock
     private RepositoryFactory repositoryFactory;
     @Mock
@@ -113,7 +108,7 @@ class CreditServiceImpTest {
         String idCredit = "CREDIT001";
         // Given
         when(creditRepository.findById(idCredit)).thenReturn(Mono.just(credit1));
-        when(paymentService
+        when(paymentServiceClient
                 .findAllPaymentByIdProductCreditAndSortByDate(idCredit))
                 .thenReturn(Flux.just(payment1, payment2));
         // WHen
@@ -123,7 +118,7 @@ class CreditServiceImpTest {
                 .expectNextMatches(credit -> credit.getId().equals(idCredit) && credit.getPayments().size() == 2)
                 .verifyComplete();
         verify(creditRepository).findById(idCredit);
-        verify(paymentService).findAllPaymentByIdProductCreditAndSortByDate(idCredit);
+        verify(paymentServiceClient).findAllPaymentByIdProductCreditAndSortByDate(idCredit);
     }
 
     @Test
@@ -185,9 +180,9 @@ class CreditServiceImpTest {
         credit2.setId("CREDIT002");
         // Given
         when(creditRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(credit1, credit2));
-        when(paymentService.findAllPaymentByIdProductCreditAndSortByDate(credit1.getId()))
+        when(paymentServiceClient.findAllPaymentByIdProductCreditAndSortByDate(credit1.getId()))
                 .thenReturn(Flux.just(payment1, payment2));
-        when(paymentService.findAllPaymentByIdProductCreditAndSortByDate(credit2.getId()))
+        when(paymentServiceClient.findAllPaymentByIdProductCreditAndSortByDate(credit2.getId()))
                 .thenReturn(Flux.just(payment1));
         // When
         Flux<Credit> creditFlux = creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient);
@@ -202,7 +197,7 @@ class CreditServiceImpTest {
                 .verifyComplete();
 
         verify(creditRepository).findAllByIdClient(idClient);
-        verify(paymentService).findAllPaymentByIdProductCreditAndSortByDate(credit1.getId());
+        verify(paymentServiceClient).findAllPaymentByIdProductCreditAndSortByDate(credit1.getId());
     }
 
     @Test
@@ -330,48 +325,6 @@ class CreditServiceImpTest {
         // Then
         StepVerifier.create(creditMono)
                 .expectError(CreditInvalid.class)
-                .verify();
-    }
-
-    @Test
-    @DisplayName("Create a credit with due date credit")
-    void createCreditDueDateCreditTest() {
-        String idClient = "clientN001";
-        ZoneId zone = ZoneId.of("UTC");
-        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
-        Clock fixedClock = Clock.fixed(instant, zone);
-        when(clock.instant()).thenReturn(fixedClock.instant());
-        when(clock.getZone()).thenReturn(fixedClock.getZone());
-
-        payment1 = new PaymentDto();
-        payment1.setMonthCorresponding(12);
-        payment1.setYearCorresponding(2024);
-        payment1.setTypeCreditProduct(PaymentDto.TypeCreditProduct.CREDIT);
-
-        credit1.setDisbursementDate(LocalDate.of(2024, 11, 5));
-        credit1.setFirstDatePay(LocalDate.of(2024, 12, 2));
-
-        Credit credit = new Credit(
-                "clientN001",
-                500.0,
-                500.0,
-                0.15,
-                LocalDate.of(2025, 2, 18),
-                LocalDate.of(2025, 3, 2),
-                12,
-                0.0
-        );
-        // Given
-        when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
-        when(creditRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(credit1));
-        when(paymentServiceClient.findAllPaymentByIdProductCreditAndSortByDate("CREDIT001"))
-                .thenReturn(Flux.just(payment1));
-        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
-        // When
-        Mono<Credit> creditMono = creditService.create(credit);
-        // Then
-        StepVerifier.create(creditMono)
-                .expectError(IneligibleClientException.class)
                 .verify();
     }
 
@@ -505,5 +458,51 @@ class CreditServiceImpTest {
                 .verify();
         verify(creditRepository).findById(credit1.getId());
     }
+
+    @Test
+    @DisplayName("Create a credit with due date credit")
+    void createCreditDueDateCreditTest() {
+        String idClient = "clientN001";
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
+
+        payment1 = new PaymentDto();
+        payment1.setDatePayment(LocalDateTime.now(clock));
+        payment1.setMonthCorresponding(12);
+        payment1.setYearCorresponding(2024);
+        payment1.setTypeCreditProduct(PaymentDto.TypeCreditProduct.CREDIT);
+        payment1.setAmount(credit1.getTotalAmount());
+        payment1.setIdProductCredit(credit1.getId());
+
+        credit1.setDisbursementDate(LocalDate.of(2024, 11, 5));
+        credit1.setFirstDatePay(LocalDate.of(2024, 12, 2));
+
+        Credit credit = new Credit(
+                "clientN001",
+                500.0,
+                500.0,
+                0.15,
+                LocalDate.of(2025, 2, 18),
+                LocalDate.of(2025, 3, 2),
+                12,
+                0.0
+        );
+        // Given
+        when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
+        when(creditRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(credit1));
+        when(paymentServiceClient.findAllPaymentByIdProductCreditAndSortByDate("CREDIT001"))
+                .thenReturn(Flux.just(payment1));
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
+        // When
+        Mono<Credit> creditMono = creditService.create(credit);
+        // Then
+        StepVerifier.create(creditMono)
+                .expectError(IneligibleClientException.class)
+                .verify();
+    }
+
 
 }

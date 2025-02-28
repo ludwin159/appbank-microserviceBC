@@ -16,6 +16,7 @@ public class MovementDto {
     private Double commissionAmount;
     private String idBankAccountTransfer;
     private String idTransfer;
+    private LocalDateTime createdAt;
 
     public MovementDto() {
         this.date = LocalDateTime.now();

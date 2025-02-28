@@ -83,4 +83,9 @@ public class ReportsController {
         return reportService.generateReportCompleteAndGeneralByProductInRangeDate(fromInstant, toInstant);
     }
 
+    @GetMapping("/report-last-then-movements-cards-by-client/{idClient}")
+    public Mono<Map<String, Object>> reportWithTheLastTenDebitAndCreditCardMovements (@PathVariable String idClient) {
+        return reportService.reportLastTenMovementsCreditDebit(idClient);
+    }
+
 }

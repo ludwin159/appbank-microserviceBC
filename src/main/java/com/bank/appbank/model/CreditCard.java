@@ -38,11 +38,11 @@ public class CreditCard extends BankProduct {
 
     @NotNull
     @Pattern(regexp = "^(20|13)$", message = "The billing date can be 20 or 13")
-    private Integer numberBillingDate;
+    private String numberBillingDate;
 
     @NotNull
-    @Pattern(regexp = "^(5|28)$", message = "The payment due date can be 5 or 28")
-    private Integer numberDueDate;
+    @Pattern(regexp = "^(5|28)$", message = "The number due date can be 5 or 28")
+    private String numberDueDate;
 
     private LocalDate dueDate;
 

@@ -176,7 +176,8 @@ public class CreditServiceImp extends ServiceGenImp<Credit, String> implements C
     }
 
     private boolean isOverdueCreditCard(CreditCard creditCard) {
-        return creditCard.getDueDate() != null && LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
+        return creditCard.getDueDate() != null &&
+                LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
     }
 
     private boolean isOverdueCreditOnly(Credit credit) {

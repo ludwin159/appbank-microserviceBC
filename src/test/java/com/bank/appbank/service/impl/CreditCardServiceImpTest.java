@@ -49,8 +49,6 @@ class CreditCardServiceImpTest {
     @Mock
     private ClientRepository clientRepository;
     @Mock
-    private PaymentServiceClient paymentServiceClient;
-    @Mock
     private Clock clock;
     @Mock
     private CreditService creditService;
@@ -93,8 +91,8 @@ class CreditCardServiceImpTest {
         creditCard1.setIdClient("clientN001");
         creditCard1.setLimitCredit(1000.0);
         creditCard1.setAvailableBalance(500.0);
-        creditCard1.setNumberBillingDate(20);
-        creditCard1.setNumberDueDate(5);
+        creditCard1.setNumberBillingDate("20");
+        creditCard1.setNumberDueDate("5");
 
         personalClient = new Client();
         personalClient.setId("clientN001");
@@ -137,7 +135,7 @@ class CreditCardServiceImpTest {
         // Given
         when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
         when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
-        when(clientService.findById(idClient)).thenReturn(Mono.just(personalClient));
+        when(clientRepository.findById(idClient)).thenReturn(Mono.just(personalClient));
         when(creditCardRepository.save(creditCard1)).thenReturn(Mono.just(creditCard1));
         // WHen
         Mono<CreditCard> creditCardMono = creditCardService.create(creditCard1);
@@ -145,7 +143,7 @@ class CreditCardServiceImpTest {
         StepVerifier.create(creditCardMono)
                 .expectNextMatches(creditCard -> creditCard.getId().equals(creditCard1.getId()))
                 .verifyComplete();
-        verify(clientService).findById(idClient);
+        verify(clientRepository).findById(idClient);
         verify(creditCardRepository).save(creditCard1);
     }
 
@@ -154,7 +152,7 @@ class CreditCardServiceImpTest {
     void createCreditCardWithNotExistClientTest() {
         String idClient = "clientN001";
         // Given
-        when(clientService.findById(idClient)).thenReturn(Mono.error(new ResourceNotFoundException("")));
+        when(clientRepository.findById(idClient)).thenReturn(Mono.error(new ResourceNotFoundException("")));
         when(creditCardRepository.save(creditCard1)).thenReturn(Mono.just(creditCard1));
         // WHen
         Mono<CreditCard> creditCardMono = creditCardService.create(creditCard1);
@@ -162,7 +160,7 @@ class CreditCardServiceImpTest {
         StepVerifier.create(creditCardMono)
                 .expectError(ResourceNotFoundException.class)
                 .verify();
-        verify(clientService).findById(idClient);
+        verify(clientRepository).findById(idClient);
     }
 
     @Test
@@ -174,8 +172,8 @@ class CreditCardServiceImpTest {
         creditCardNew.setIdClient(idClient);
         creditCardNew.setLimitCredit(500.0);
         creditCardNew.setAvailableBalance(50.0);
-        creditCardNew.setNumberBillingDate(20);
-        creditCardNew.setNumberDueDate(5);
+        creditCardNew.setNumberBillingDate("20");
+        creditCardNew.setNumberDueDate("5");
         // Given
         when(creditCardRepository.findById("CREDIT_CARD001")).thenReturn(Mono.just(creditCard1));
         when(creditCardRepository.save(any(CreditCard.class))).thenReturn(Mono.just(creditCardNew));

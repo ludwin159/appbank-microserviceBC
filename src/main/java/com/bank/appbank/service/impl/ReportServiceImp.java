@@ -9,6 +9,8 @@ import com.bank.appbank.model.*;
 import static com.bank.appbank.model.BankAccount.TypeBankAccount.*;
 
 import com.bank.appbank.repository.*;
+import com.bank.appbank.service.CreditCardService;
+import com.bank.appbank.service.DebitCardService;
 import com.bank.appbank.service.ReportService;
 import org.apache.commons.lang3.time.DateParser;
 import org.apache.http.impl.cookie.DateParseException;
@@ -32,7 +34,8 @@ public class ReportServiceImp implements ReportService {
     private final DailyBalanceRepository dailyBalanceRepository;
     private final ClientRepository clientRepository;
     private final MovementServiceClient movementServiceClient;
-//    private final DateProvider dateProvider;
+    private final CreditCardService creditCardService;
+    private final DebitCardService debitCardService;
     private final Clock clock;
 
     public ReportServiceImp(BankAccountRepository bankAccountRepository,
@@ -41,7 +44,8 @@ public class ReportServiceImp implements ReportService {
                             DailyBalanceRepository dailyBalanceRepository,
                             ClientRepository clientRepository,
                             MovementServiceClient movementServiceClient,
-//                            DateProvider dateProvider,
+                            CreditCardService creditCardService,
+                            DebitCardService debitCardService,
                             Clock clock) {
         this.bankAccountRepository = bankAccountRepository;
         this.creditCardRepository = creditCardRepository;
@@ -49,7 +53,8 @@ public class ReportServiceImp implements ReportService {
         this.dailyBalanceRepository = dailyBalanceRepository;
         this.clientRepository = clientRepository;
         this.movementServiceClient = movementServiceClient;
-//        this.dateProvider = dateProvider;
+        this.debitCardService = debitCardService;
+        this.creditCardService = creditCardService;
         this.clock = clock;
     }
 
@@ -176,10 +181,10 @@ public class ReportServiceImp implements ReportService {
         log.info("from: "+from);
         log.info("to: "+to);
         return movementServiceClient.getAllMovementsByRangeDate(from, to)
-                .onErrorResume(err -> {
-                    log.error("An error has occurred" + err);
-                    return Mono.error(new RuntimeException("Service not available"));
-                })
+//                .onErrorResume(err -> {
+//                    log.error("An error has occurred" + err);
+//                    return Mono.error(new RuntimeException("Service not available"));
+//                })
                 .filter(movement -> {
                     log.info(String.valueOf(movement));
 
@@ -236,7 +241,8 @@ public class ReportServiceImp implements ReportService {
 
                     bankAccountsResponse.put("total", bankAccounts.size());
                     bankAccountsResponse.put("savingAccounts", getBankAccountByType(bankAccounts, SAVING_ACCOUNT));
-                    bankAccountsResponse.put("fixedTermAccounts", getBankAccountByType(bankAccounts, FIXED_TERM_ACCOUNT));
+                    bankAccountsResponse.put("fixedTermAccounts",
+                            getBankAccountByType(bankAccounts, FIXED_TERM_ACCOUNT));
                     bankAccountsResponse.put("currentAccounts", getBankAccountByType(bankAccounts, CURRENT_ACCOUNT));
                     response.put("bankAccounts", bankAccountsResponse);
 
@@ -258,5 +264,17 @@ public class ReportServiceImp implements ReportService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public Mono<Map<String, Object>> reportLastTenMovementsCreditDebit(String idClient) {
+        return Mono.zip(
+                debitCardService.getLastTenMovementsDebitCard(idClient),
+                creditCardService.getLastTenPaymentsAndConsumptionsByIdClient(idClient)
+        ).map(tuple -> {
+            Map<String, Object> response = new HashMap<>();
+            response.put("movementsDebitCard", tuple.getT1());
+            response.put("movementsCreditCard", tuple.getT2());
+            return response;
+        });
+    }
 
 }

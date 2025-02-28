@@ -55,7 +55,7 @@ public class CreditCardBillingScheduler {
                     LocalDate today = LocalDate.now();
                     int numberDay = today.getDayOfMonth();
 
-                    if (numberDay == creditCard.getNumberBillingDate()) {
+                    if (numberDay == Integer.parseInt(creditCard.getNumberBillingDate())) {
                         return generateBillingStatement(creditCard);
                     }
 
@@ -91,10 +91,10 @@ public class CreditCardBillingScheduler {
 
                     creditCard.setTotalDebt(creditCard.getTotalDebt() + newDebt);
 
-                    creditCard.setAvailableBalance(creditCard.getAvailableBalance() - newDebt);
+//                    creditCard.setAvailableBalance(creditCard.getAvailableBalance() - newDebt);
 
                     LocalDate newDueDate = today.plusMonths(1)
-                            .withDayOfMonth(creditCard.getNumberDueDate());
+                            .withDayOfMonth(Integer.parseInt(creditCard.getNumberDueDate()));
                     creditCard.setDueDate(newDueDate);
 
                     log.info("Billing statement generated for card: {}", creditCard.getId());

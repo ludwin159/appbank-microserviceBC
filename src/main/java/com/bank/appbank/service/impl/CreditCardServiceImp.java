@@ -12,21 +12,24 @@ import com.bank.appbank.model.CreditCard;
 import com.bank.appbank.dto.PaymentDto;
 import com.bank.appbank.repository.ClientRepository;
 import com.bank.appbank.repository.CreditCardRepository;
-import com.bank.appbank.repository.CreditRepository;
-import com.bank.appbank.service.ClientService;
 import com.bank.appbank.service.CreditCardService;
 import com.bank.appbank.service.CreditService;
-import io.netty.channel.unix.Errors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -105,15 +108,16 @@ public class CreditCardServiceImp extends ServiceGenImp<CreditCard, String> impl
                         }));
     }
     private Mono<CreditCard> setNumbersBillingAndDueDate(CreditCard creditCard) {
-        if (creditCard.getNumberBillingDate() != 20 && creditCard.getNumberBillingDate() != 13) {
+        if (!Objects.equals(creditCard.getNumberBillingDate(), "20")
+                && !Objects.equals(creditCard.getNumberBillingDate(), "13")) {
             return Mono.error(new CreditInvalid("The number billing or number due date is different to 20 or 13"));
         }
 
         creditCard.setNumberBillingDate(creditCard.getNumberBillingDate());
-        if (creditCard.getNumberBillingDate() == 20)
-            creditCard.setNumberDueDate(5);
-        if (creditCard.getNumberBillingDate() == 13)
-            creditCard.setNumberDueDate(28);
+        if (Objects.equals(creditCard.getNumberBillingDate(), "20"))
+            creditCard.setNumberDueDate("5");
+        if (Objects.equals(creditCard.getNumberBillingDate(), "13"))
+            creditCard.setNumberDueDate("28");
         return Mono.just(creditCard);
     }
 
@@ -153,7 +157,8 @@ public class CreditCardServiceImp extends ServiceGenImp<CreditCard, String> impl
     }
 
     private boolean isOverdueCreditCard(CreditCard creditCard) {
-        return creditCard.getDueDate() != null && LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
+        return creditCard.getDueDate() != null &&
+                LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
     }
 
     private boolean isOverdueCreditOnly(Credit credit) {
@@ -178,6 +183,43 @@ public class CreditCardServiceImp extends ServiceGenImp<CreditCard, String> impl
     public Flux<CreditCard> allCreditCardsByIdClientWithPaymentAndConsumption(String idClient) {
         return ((CreditCardRepository)getRepository()).findAllByIdClient(idClient)
                 .flatMap(this::loadPaymentAndConsumption);
+    }
+
+    @Override
+    public Mono<List<Object>> getLastTenPaymentsAndConsumptionsByIdClient(String idClient) {
+        return ((CreditCardRepository)getRepository()).findAllByIdClient(idClient)
+                .collectList()
+                .flatMap(creditCards -> {
+                    List<String> idCreditCards = creditCards.stream()
+                            .map(CreditCard::getId)
+                            .collect(Collectors.toList());
+                    return Mono.zip(
+                            paymentClientService.lastTenPaymentsByIdCreditCard(idCreditCards)
+                                    .defaultIfEmpty(Collections.emptyList()),
+                            consumptionServiceClient.findLastTenConsumptions(idCreditCards)
+                                    .defaultIfEmpty(Collections.emptyList())
+                    ).map(tuple -> {
+                        List<PaymentDto> payments = tuple.getT1();
+                        List<ConsumptionDto> consumptions = tuple.getT2();
+                        List<Object> combinedList = new ArrayList<>();
+                        combinedList.addAll(payments);
+                        combinedList.addAll(consumptions);
+                        combinedList.sort((a, b) -> {
+                            LocalDateTime createdAtA = getCreatedAt(a);
+                            LocalDateTime createdAtB = getCreatedAt(b);
+                            return createdAtB.compareTo(createdAtA);
+                        });
+                        return combinedList.stream().limit(10).collect(Collectors.toList());
+                    });
+                });
+    }
+    private LocalDateTime getCreatedAt(Object element) {
+        if (element instanceof PaymentDto) {
+            return ((PaymentDto) element).getCreatedAt();
+        } else if (element instanceof ConsumptionDto){
+            return ((ConsumptionDto) element).getCreatedAt();
+        }
+        return LocalDateTime.MIN;
     }
 
     @Override
