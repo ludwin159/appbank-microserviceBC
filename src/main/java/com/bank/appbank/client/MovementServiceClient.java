@@ -5,7 +5,10 @@ import com.bank.appbank.exceptions.ServiceNotAvailableException;
 import com.bank.appbank.exceptions.UnsupportedMovementException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,6 +22,7 @@ import java.util.List;
 public class MovementServiceClient {
 
     private final WebClient webClient;
+    private final static Logger log = LoggerFactory.getLogger(MovementServiceClient.class);
     private String errorMessage = "The backend for movements is not available";
     public MovementServiceClient(WebClient.Builder webClient) {
         this.webClient = webClient.baseUrl("http://movementsmicroservice").build();
@@ -54,7 +58,9 @@ public class MovementServiceClient {
     @CircuitBreaker(name = "movementsCircuitBreaker", fallbackMethod = "fallbackLastTenMovements")
     @TimeLimiter(name = "movementsCircuitBreaker")
     public Mono<List<MovementDto>> getLastTenMovements(List<String> idBankAccounts) {
+        log.info("Get last then movements from: " + idBankAccounts);
         return webClient.post().uri("/movements/last-ten-by-bank-accounts")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(idBankAccounts)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<MovementDto>>() {});
@@ -74,6 +80,7 @@ public class MovementServiceClient {
     }
     public Mono<MovementDto> fallbackLastTenMovements(List<String> idBankAccounts, Throwable ex) {
         errorMessage = "Could not bring the last 10 movements";
+        log.error("ERROR fallback last ten movements");
         return Mono.error(new ServiceNotAvailableException(errorMessage));
     }
 

@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface BankAccountDebitCardRepository extends  RepositoryT<BankAccountDebitCard, String> {
     Flux<BankAccountDebitCard> findAllByIdDebitCardIn(List<String> idDebitCards);
+    Flux<BankAccountDebitCard> findAllByIdDebitCard(String idDebitCard);
+    Flux<BankAccountDebitCard> findAllByIdDebitCardOrderByCreatedAtAsc(String idDebitCard);
 }

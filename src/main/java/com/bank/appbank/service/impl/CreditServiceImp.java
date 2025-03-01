@@ -68,6 +68,8 @@ public class CreditServiceImp extends ServiceGenImp<Credit, String> implements C
                     creditFound.setPendingBalance(credit.getPendingBalance());
                     creditFound.setInterestRate(credit.getInterestRate());
                     creditFound.setTotalAmount(credit.getTotalAmount());
+                    creditFound.setFirstDatePay(credit.getFirstDatePay());
+                    creditFound.setDisbursementDate(credit.getDisbursementDate());
                     return getRepository().save(creditFound);
                 });
     }

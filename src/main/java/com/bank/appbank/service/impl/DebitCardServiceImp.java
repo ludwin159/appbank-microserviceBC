@@ -1,116 +1,116 @@
 package com.bank.appbank.service.impl;
 
-<<<<<<< HEAD
 import com.bank.appbank.client.MovementServiceClient;
 import com.bank.appbank.dto.MovementDto;
-import com.bank.appbank.dto.PaymentDto;
-=======
->>>>>>> d08731159d5f7028eaa5e24176376745c88efd75
+import com.bank.appbank.exceptions.BadInformationException;
+import com.bank.appbank.exceptions.IneligibleClientException;
 import com.bank.appbank.exceptions.ResourceNotFoundException;
 import com.bank.appbank.factory.RepositoryFactory;
+import com.bank.appbank.model.BankAccount;
 import com.bank.appbank.model.BankAccountDebitCard;
 import com.bank.appbank.model.DebitCard;
-<<<<<<< HEAD
 import com.bank.appbank.repository.BankAccountDebitCardRepository;
 import com.bank.appbank.repository.BankAccountRepository;
-=======
->>>>>>> d08731159d5f7028eaa5e24176376745c88efd75
+import com.bank.appbank.repository.ClientRepository;
 import com.bank.appbank.repository.DebitCardRepository;
 import com.bank.appbank.service.DebitCardService;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-<<<<<<< HEAD
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
-=======
-import java.util.Collections;
->>>>>>> d08731159d5f7028eaa5e24176376745c88efd75
 
 @Service
 public class DebitCardServiceImp extends ServiceGenImp<DebitCard, String> implements DebitCardService {
     private final BankAccountDebitCardRepository bankAccountDebitCardRepository;
     private final MovementServiceClient movementServiceClient;
     private final BankAccountRepository bankAccountRepository;
+    private final ClientRepository clientRepository;
 
-<<<<<<< HEAD
     public DebitCardServiceImp(RepositoryFactory repositoryFactory,
                                BankAccountDebitCardRepository bankAccountDebitCardRepository,
                                MovementServiceClient movementServiceClient,
-                               BankAccountRepository bankAccountRepository) {
+                               BankAccountRepository bankAccountRepository,
+                               ClientRepository clientRepository) {
         super(repositoryFactory);
         this.bankAccountDebitCardRepository = bankAccountDebitCardRepository;
         this.movementServiceClient = movementServiceClient;
         this.bankAccountRepository = bankAccountRepository;
-=======
-    private final DebitCardRepository debitCardRepository;
-
-    public DebitCardServiceImp(RepositoryFactory repositoryFactory, DebitCardRepository debitCardRepository) {
-        super(repositoryFactory);
-        this.debitCardRepository = debitCardRepository;
->>>>>>> d08731159d5f7028eaa5e24176376745c88efd75
+        this.clientRepository = clientRepository;
     }
 
     @Override
-    protected Class<DebitCard> getEntityClass() {
-        return DebitCard.class;
+    public Mono<DebitCard> create(DebitCard newDebitCard) {
+        return clientRepository.findById(newDebitCard.getIdClient())
+                .flatMap(client -> bankAccountRepository.findById(newDebitCard.getIdPrincipalAccount())
+                        .flatMap(bankAccount -> getRepository().save(newDebitCard)
+                                .flatMap(debitCard -> {
+                                    BankAccountDebitCard register = new BankAccountDebitCard();
+                                    register.setIdBankAccount(bankAccount.getId());
+                                    register.setIdDebitCard(debitCard.getId());
+                                    return bankAccountDebitCardRepository.save(register)
+                                            .then(Mono.just(debitCard));
+                                })));
     }
 
-    @Override
-    public Mono<DebitCard> updateDebitCard(String id, DebitCard updatedCard) {
-        return debitCardRepository.findById(id)
-                .flatMap(existingCard -> {
-                    existingCard.setNumberCard(updatedCard.getNumberCard());
-                    existingCard.setIdClient(updatedCard.getIdClient());
-                    existingCard.setIdPrincipalAccount(updatedCard.getIdPrincipalAccount());
-                    existingCard.setBankAccounts(updatedCard.getBankAccounts());
-                    return debitCardRepository.save(existingCard);
-                })
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Debit card not found with ID: " + id)));
-    }
-
-    @Override
-    public Mono<DebitCard> create(DebitCard newCard) {
-        return checkIfDebitCardExists(newCard.getNumberCard())
-                .flatMap(exists -> {
-                    if ("NOT_EXISTS".equals(exists)) {
-                        return debitCardRepository.save(newCard);
-                    }
-                });
-    }
-
-    private Mono<String> checkIfDebitCardExists(String cardNumber) {
-        return debitCardRepository.findById(cardNumber)
-                .map(existing -> "EXIST")
-                .defaultIfEmpty("NOT_EXISTS");
-    }
 
     @Override
     public Mono<DebitCard> update(String idDebitCard, DebitCard debitCard) {
-        return debitCardRepository.findById(idDebitCard)
-                .flatMap(existingCard -> {
-                    existingCard.setNumberCard(debitCard.getNumberCard());
-                    existingCard.setIdClient(debitCard.getIdClient());
-                    existingCard.setIdPrincipalAccount(debitCard.getIdPrincipalAccount());
-                    existingCard.setBankAccounts(debitCard.getBankAccounts());
-                    return debitCardRepository.save(existingCard);
-                })
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("Debit card not found with ID: " + id)));
+        return getRepository().findById(idDebitCard)
+                .switchIfEmpty(Mono.error(
+                        new ResourceNotFoundException("Debit card not found with ID: " + idDebitCard)))
+                .flatMap(existingCard -> validateClient(existingCard, debitCard)
+                        .then(updatePrincipalAccount(existingCard, debitCard))
+                );
     }
 
-    @Override
-    public Flux<DebitCard> findAllByClientId(String clientId) {
-        return debitCardRepository.findAllById(Collections.singleton(clientId));
+    private Mono<Void> validateClient(DebitCard existingCard, DebitCard debitCard) {
+        if (!existingCard.getIdClient().equals(debitCard.getIdClient())) {
+            return Mono.error(new IneligibleClientException("The change client is not available"));
+        }
+        return Mono.empty();
+    }
+
+    private Mono<DebitCard> updatePrincipalAccount(DebitCard existingCard, DebitCard debitCard) {
+        if (!existingCard.getIdPrincipalAccount().equals(debitCard.getIdPrincipalAccount())) {
+            return findRegistersByDebitCard(existingCard.getId())
+                    .flatMap(bankAccountDebitCards -> {
+                        List<String> idsBanks = bankAccountDebitCards.stream()
+                                .map(BankAccountDebitCard::getIdBankAccount)
+                                .collect(Collectors.toList());
+                        return getBankAccount(existingCard.getId(), idsBanks);
+                    })
+                    .flatMap(existId -> saveUpdatedCard(existingCard, debitCard));
+        }
+        return saveUpdatedCard(existingCard, debitCard);
+    }
+
+    private Mono<DebitCard> saveUpdatedCard(DebitCard existingCard, DebitCard debitCard) {
+        existingCard.setNumberCard(debitCard.getNumberCard());
+        existingCard.setIdPrincipalAccount(debitCard.getIdPrincipalAccount());
+        return getRepository().save(existingCard);
+    }
+
+    private Mono<List<BankAccountDebitCard>> findRegistersByDebitCard(String idDebitCard) {
+        return bankAccountDebitCardRepository.findAllByIdDebitCard(idDebitCard).collectList();
+    }
+
+    private Mono<String> getBankAccount(String idAccountToFind, List<String> idBankAccounts) {
+        return Mono.justOrEmpty(findStringInStrings(idAccountToFind, idBankAccounts))
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("The new main account is not related")));
+    }
+
+    private Optional<String> findStringInStrings(String idAccountToFind, List<String> idBankAccounts) {
+        return idBankAccounts.stream()
+                .filter(idBankAccount -> idBankAccount.equals(idAccountToFind))
+                .findFirst();
     }
 
     @Override
     public Mono<Void> deleteDebitCard(String id) {
-        return debitCardRepository.findById(id)
-                .flatMap(existingCard -> debitCardRepository.delete(existingCard))
+        return getRepository().findById(id)
+                .flatMap(existingCard -> getRepository().delete(existingCard))
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Debit card not found with ID: " + id)));
     }
 
@@ -146,4 +146,74 @@ public class DebitCardServiceImp extends ServiceGenImp<DebitCard, String> implem
                         }));
     }
 
+    @Override
+    public Mono<BankAccountDebitCard> addBankAccountToDebitCard(BankAccountDebitCard bankAccountDebitCard) {
+        String idBankAccount = bankAccountDebitCard.getIdBankAccount();
+        String idDebitCard = bankAccountDebitCard.getIdDebitCard();
+        String messageError = "The bank account is already related to the debit card";
+
+        Mono<BankAccount> bankAccountMono = bankAccountRepository.findById(idBankAccount)
+                .switchIfEmpty(Mono.error(
+                        new ResourceNotFoundException("Bank account not exist with id: " + idBankAccount)));
+
+        Mono<DebitCard> debitCardMono = getRepository().findById(idDebitCard)
+                .switchIfEmpty(Mono.error(
+                        new ResourceNotFoundException("Debit card not exist with id: " + idDebitCard)));
+
+        return Mono.zip(bankAccountMono, debitCardMono)
+                .flatMap(tuple -> {
+                    BankAccount bankAccount = tuple.getT1();
+                    DebitCard debitCard = tuple.getT2();
+                    if (!Objects.equals(bankAccount.getIdClient(), debitCard.getIdClient())){
+                        String message = "The bank account client does not match the debit account: (" +
+                        bankAccount.getIdClient() + " : " + debitCard.getIdClient() + ")";
+                        return Mono.error(new IneligibleClientException(message));
+                    }
+                    return bankAccountDebitCardRepository.findAllByIdDebitCard(debitCard.getId())
+                            .map(BankAccountDebitCard::getIdBankAccount)
+                            .collectList()
+                            .flatMap(idsBankAccount -> {
+                                if (findStringInStrings(idBankAccount, idsBankAccount).isPresent()) {
+                                    return Mono.error(new BadInformationException(messageError));
+                                }
+                                return bankAccountDebitCardRepository.save(bankAccountDebitCard);
+                            });
+                });
+    }
+
+    @Override
+    public Mono<DebitCard> findByIdWithBankAccountsOrderByCreatedAt(String idDebitCard) {
+        return getRepository().findById(idDebitCard)
+                .switchIfEmpty(
+                        Mono.error(new ResourceNotFoundException("Debit card not exist with id: " + idDebitCard)))
+                .flatMap(debitCard -> bankAccountDebitCardRepository
+                        .findAllByIdDebitCardOrderByCreatedAtAsc(idDebitCard)
+                        .collectList()
+                        .flatMap(registers -> {
+                            List<String> bankAccountsIdsInOrder = registers.stream()
+                                    .map(BankAccountDebitCard::getIdBankAccount)
+                                    .collect(Collectors.toList());
+                            return bankAccountRepository.findByIdIn(bankAccountsIdsInOrder)
+                                    .collectList()
+                                    .map(bankAccounts -> {
+                                        Map<String, BankAccount> mapBankAccounts = bankAccounts.stream()
+                                                .collect(Collectors.toMap(BankAccount::getId, account -> account));
+
+                                        List<BankAccount> listBankAccounts = bankAccountsIdsInOrder
+                                                .stream()
+                                                .map(mapBankAccounts::get)
+                                                .filter(Objects::nonNull)
+                                                .collect(Collectors.toList());
+
+                                       debitCard.setBankAccounts(listBankAccounts);
+                                       return debitCard;
+                                    });
+                        })
+                );
+    }
+
+    @Override
+    protected Class<DebitCard> getEntityClass() {
+        return DebitCard.class;
+    }
 }

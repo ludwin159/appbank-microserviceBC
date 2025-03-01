@@ -5,6 +5,8 @@ import com.bank.appbank.exceptions.ServiceNotAvailableException;
 import com.bank.appbank.exceptions.UnsupportedMovementException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import java.util.List;
 @Service
 public class ConsumptionServiceClient {
     private final WebClient webClient;
+    private final static Logger log = LoggerFactory.getLogger(ConsumptionServiceClient.class);
     private final String serviceNotAvailableMessage = "The endpoint of consumptions is not available";
     public ConsumptionServiceClient(WebClient.Builder webClient) {
         this.webClient = webClient.baseUrl("http://movementsmicroservice").build();
@@ -52,6 +55,7 @@ public class ConsumptionServiceClient {
     @CircuitBreaker(name = "consumptionCircuitBreaker", fallbackMethod = "fallbackLastConsumptions")
     @TimeLimiter(name = "consumptionCircuitBreaker")
     public Mono<List<ConsumptionDto>> findLastTenConsumptions(List<String> idConsumptions) {
+        log.info("Pasa por ajuya" + idConsumptions);
         return webClient.post().uri("/consumptions/find-last-ten-credit-card")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(idConsumptions)
@@ -69,6 +73,7 @@ public class ConsumptionServiceClient {
         return Flux.error(new ServiceNotAvailableException(serviceNotAvailableMessage));
     }
     public Mono<String> fallbackLastConsumptions(List<String> idConsumptions, Throwable error) {
+        log.error("Tiene un error por ajuya" + idConsumptions);
         return Mono.error(new UnsupportedMovementException(serviceNotAvailableMessage));
     }
 }

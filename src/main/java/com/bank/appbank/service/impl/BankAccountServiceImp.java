@@ -153,15 +153,6 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
                 .defaultIfEmpty(Collections.emptyList());
     }
 
-    private LocalDate getDateLimitExpected(Credit credit, int month, int year) {
-        LocalDate today = LocalDate.now(clock);
-        if (credit.getFirstDatePay().isAfter(today)) {
-            return credit.getFirstDatePay();
-        }
-        LocalDate firstPaymentDate = credit.getFirstDatePay();
-        return LocalDate.of(year, month, firstPaymentDate.getDayOfMonth());
-    }
-
     private boolean isOverdueCreditCard(CreditCard creditCard) {
         return creditCard.getDueDate() != null &&
                 LocalDate.now(clock).isAfter(creditCard.getDueDate()) && creditCard.getTotalDebt() > 0;
@@ -179,6 +170,15 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
         LocalDate dueDate = getDateLimitExpected(credit, numberMonth, numberYear);
 
         return today.isAfter(dueDate) && !hasPaymentInPresentMonth;
+    }
+
+    private LocalDate getDateLimitExpected(Credit credit, int month, int year) {
+        LocalDate today = LocalDate.now(clock);
+        if (credit.getFirstDatePay().isAfter(today)) {
+            return credit.getFirstDatePay();
+        }
+        LocalDate firstPaymentDate = credit.getFirstDatePay();
+        return LocalDate.of(year, month, firstPaymentDate.getDayOfMonth());
     }
 
     private Mono<Client> validateClientAndBankAccount(BankAccount bankAccount, Client client) {

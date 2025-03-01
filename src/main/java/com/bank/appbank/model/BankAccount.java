@@ -58,6 +58,7 @@ public class BankAccount extends BankProduct {
     private List<MovementDto> movements;
 
     public BankAccount() {
+        createdAt = LocalDateTime.now();
         movements = new ArrayList<>();
     }
 

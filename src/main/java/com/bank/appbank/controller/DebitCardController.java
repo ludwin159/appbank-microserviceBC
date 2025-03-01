@@ -1,5 +1,6 @@
 package com.bank.appbank.controller;
 
+import com.bank.appbank.model.BankAccountDebitCard;
 import com.bank.appbank.model.DebitCard;
 import com.bank.appbank.service.DebitCardService;
 import com.bank.appbank.service.ServiceT;
@@ -27,4 +28,15 @@ public class DebitCardController extends ControllerT<DebitCard, String>{
     public Mono<Map<String, Object>> getBalancePrincipalAccount(@PathVariable String idDebitCard) {
         return debitCardService.getBalanceOfBankAccountInDebitCard(idDebitCard);
     }
+    @PostMapping("/add-bank-account")
+    public Mono<BankAccountDebitCard> addBankAccountToDebitCard(
+            @Valid @RequestBody BankAccountDebitCard BankAccountDebitCard) {
+        return debitCardService.addBankAccountToDebitCard(BankAccountDebitCard);
+    }
+
+    @GetMapping("/findByIdWithBankAccountsOrderByCreatedAt/{idDebitCard}")
+    public Mono<DebitCard> findByIdWithBankAccountsOrderByCreatedAt(@PathVariable String idDebitCard) {
+        return debitCardService.findByIdWithBankAccountsOrderByCreatedAt(idDebitCard);
+    }
+
 }
