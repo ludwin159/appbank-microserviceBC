@@ -1,7 +1,6 @@
 package com.bank.appbank.repository;
 
 
-import com.bank.appbank.model.Credit;
 import com.bank.appbank.model.CreditCard;
 import reactor.core.publisher.Flux;
 

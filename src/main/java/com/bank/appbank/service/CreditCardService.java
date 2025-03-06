@@ -1,7 +1,5 @@
 package com.bank.appbank.service;
 
-import com.bank.appbank.dto.ConsumptionDto;
-import com.bank.appbank.dto.PaymentDto;
 import com.bank.appbank.model.CreditCard;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;

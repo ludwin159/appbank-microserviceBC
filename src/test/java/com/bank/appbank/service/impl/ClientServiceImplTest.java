@@ -17,6 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,6 +34,8 @@ class ClientServiceImplTest {
     private ClientRepository clientRepository;
     @Mock
     private RepositoryFactory repositoryFactory;
+    @Mock
+    private ClientRedisService redisService;
 
     private Client personalClientTest, clientBusinessTest;
 
@@ -77,6 +80,7 @@ class ClientServiceImplTest {
         // Given
         when(clientRepository.findById(idClient)).thenReturn(Mono.just(personalClientTest));
         when(clientRepository.save(personalClientTest)).thenReturn(Mono.just(personalClientTest));
+        when(redisService.delete(anyString())).thenReturn(Mono.empty());
         // When
         Mono<Client> clientMono = clientService.updateClient(idClient, clientUpd);
         // Then
@@ -108,6 +112,7 @@ class ClientServiceImplTest {
         // Given
         when(clientRepository.findByTaxId(clientBusinessTest.getTaxId())).thenReturn(Mono.empty());
         when(clientRepository.save(any())).thenReturn(Mono.just(clientBusinessTest));
+        when(redisService.save(anyString(), any(Client.class), any(Duration.class))).thenReturn(Mono.empty());
         // When
         Mono<Client> clientMono = clientService.create(clientBusinessTest);
         // Then
@@ -129,6 +134,8 @@ class ClientServiceImplTest {
         // Given
         when(clientRepository.findByIdentity(personalClientTest.getIdentity())).thenReturn(Mono.empty());
         when(clientRepository.save(any())).thenReturn(Mono.just(personalClientTest));
+        when(redisService.save(anyString(), any(Client.class), any(Duration.class))).thenReturn(Mono.empty());
+
         // When
         Mono<Client> clientMono = clientService.create(personalClientTest);
         // Then
@@ -177,7 +184,6 @@ class ClientServiceImplTest {
     @DisplayName("Create a client personal invalid")
     void createClientPersonalInvalidTest() {
         // Given
-//        personalClientTest.setTypeClient(BUSINESS_CLIENT);
         personalClientTest.setTypeClient(BUSINESS_CLIENT);
         // When
         Mono<Client> clientMono = clientService.create(personalClientTest);
@@ -219,14 +225,15 @@ class ClientServiceImplTest {
         // Given
         when(clientRepository.findByIdentity(personalClientTest.getIdentity())).thenReturn(Mono.empty());
         when(clientRepository.save(personalClientTest)).thenReturn(Mono.just(personalClientTest));
+        when(redisService.save(anyString(), any(Client.class), any(Duration.class))).thenReturn(Mono.empty());
         // When
 
         Mono<Client> clientMono = clientService.create(personalClientTest);
         // Then
         StepVerifier.create(clientMono)
                 .assertNext(client -> {
-                    assertThat("Lucas Juan").isEqualTo(client.getFullName());
-                    assertThat("clientN001").isEqualTo(client.getId());
+                    assertThat(client.getFullName()).isEqualTo("Lucas Juan");
+                    assertThat(client.getId()).isEqualTo("clientN001");
                 })
                 .verifyComplete();
     }

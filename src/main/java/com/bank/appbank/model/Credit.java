@@ -3,7 +3,6 @@ package com.bank.appbank.model;
 import com.bank.appbank.dto.PaymentDto;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.cglib.core.Local;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -14,7 +13,6 @@ import javax.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 @Setter

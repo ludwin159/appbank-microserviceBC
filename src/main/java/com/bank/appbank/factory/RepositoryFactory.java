@@ -17,7 +17,6 @@ public class RepositoryFactory {
             CreditCardRepository creditCardRepository,
             CreditRepository creditRepository,
             BankAccountRepository bankAccountRepository,
-            BankAccountDebitCardRepository bankAccountDebitCardRepository,
             DebitCardRepository debitCardRepository
     ) {
         this.repositoryMap = Map.of(

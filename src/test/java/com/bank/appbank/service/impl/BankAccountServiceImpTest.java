@@ -2,18 +2,16 @@ package com.bank.appbank.service.impl;
 
 import com.bank.appbank.client.MovementServiceClient;
 import com.bank.appbank.dto.PaymentDto;
+import com.bank.appbank.event.producer.BankAccountProducer;
 import com.bank.appbank.exceptions.ClientNotFoundException;
 import com.bank.appbank.exceptions.IneligibleClientException;
 import com.bank.appbank.exceptions.LimitAccountsException;
 import com.bank.appbank.exceptions.ResourceNotFoundException;
 import com.bank.appbank.factory.RepositoryFactory;
-import com.bank.appbank.model.BankAccount;
-import com.bank.appbank.model.Client;
-import com.bank.appbank.model.Credit;
-import com.bank.appbank.model.CreditCard;
+import com.bank.appbank.model.*;
 import com.bank.appbank.repository.BankAccountRepository;
 import com.bank.appbank.repository.CreditCardRepository;
-import com.bank.appbank.repository.CreditRepository;
+import com.bank.appbank.repository.DebitCardRepository;
 import com.bank.appbank.service.CreditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +56,10 @@ class BankAccountServiceImpTest {
     private CreditService creditService;
     @Mock
     private MovementServiceClient movementService;
+    @Mock
+    private BankAccountProducer bankAccountProducer;
+    @Mock
+    private DebitCardRepository debitCardRepository;
     @Mock
     private Clock clock;
 
@@ -190,7 +192,6 @@ class BankAccountServiceImpTest {
     @Test
     @DisplayName("Create a Bank account with business client and holder account not exist")
     void createBusinessClientHolderNotExistTest() {
-        String idBankAccount = "IDbank002";
         String idClient = "clientN002";
         // Given
         when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
@@ -210,7 +211,6 @@ class BankAccountServiceImpTest {
     @Test
     @DisplayName("Create a Bank account with not exist client")
     void createAccountWithAnyClientTest() {
-        String idBankAccount = "IDbank001";
         String idClientNotExist = "abcd123";
         bankAccount2.setIdClient(idClientNotExist);
         // Given
@@ -409,12 +409,20 @@ class BankAccountServiceImpTest {
     @Test
     @DisplayName("Update a BankAccount Simple")
     void updateBankAccountSimpleTest() {
+        DebitCard debitCard = new DebitCard();
+        debitCard.setId("DEBIT_CARD001");
+        debitCard.setIdPrincipalAccount(bankAccount1.getId());
+        debitCard.setHasWallet(true);
+        debitCard.setNumberCard("Na98a98s98d");
         // Given
         String idBankAccount = "clientN001";
         bankAccount1.setLimitMovements(5);
         bankAccount1.setAuthorizedSignatorits(Collections.emptyList());
         when(bankAccountRepository.findById(idBankAccount)).thenReturn(Mono.just(bankAccount1));
         when(bankAccountRepository.save(any(BankAccount.class))).thenReturn(Mono.just(bankAccount1));
+        when(debitCardRepository.findAllByIdPrincipalAccount(bankAccount1.getId()))
+                .thenReturn(Flux.just(debitCard));
+        doNothing().when(bankAccountProducer).publishBalanceUpdate(any(), anyDouble());
         // When
         Mono<BankAccount> bankAccountMono = bankAccountService.update(idBankAccount, bankAccount1);
         // Then
@@ -448,6 +456,7 @@ class BankAccountServiceImpTest {
         when(bankAccountRepository.save(any(BankAccount.class))).thenReturn(Mono.just(bankAccount1));
         when(clientService.findById("idholder001")).thenReturn(Mono.just(holderAccount));
         when(clientService.findById("clientN001")).thenReturn(Mono.just(personalClient));
+        when(debitCardRepository.findAllByIdPrincipalAccount(bankAccount1.getId())).thenReturn(Flux.empty());
         // When
         Mono<BankAccount> bankAccountMono = bankAccountService.update(idBankAccount, newBankAccount);
         // Then
@@ -676,7 +685,7 @@ class BankAccountServiceImpTest {
 
     @Test
     @DisplayName("Find by id bank account without movements")
-    public void findByIdWithoutMovementsTest() {
+    void findByIdWithoutMovementsTest() {
         // Given
         when(bankAccountRepository.findById(bankAccount1.getId())).thenReturn(Mono.just(bankAccount1));
         // When
@@ -684,7 +693,7 @@ class BankAccountServiceImpTest {
         // Then
         StepVerifier.create(bankAccountMono)
                 .assertNext(bankAccount -> {
-                    assertThat(bankAccount.getMovements().size()).isEqualTo(0);
+                    assertThat(bankAccount.getMovements()).isEmpty();
                 })
                 .verifyComplete();
         verify(bankAccountRepository).findById(bankAccount1.getId());
@@ -692,7 +701,7 @@ class BankAccountServiceImpTest {
 
     @Test
     @DisplayName("Find by id bank account without movements and error")
-    public void findByIdWithoutMovementsErrorTest() {
+    void findByIdWithoutMovementsErrorTest() {
         // Given
         when(bankAccountRepository.findById(bankAccount1.getId())).thenReturn(Mono.empty());
         // When

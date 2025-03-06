@@ -30,10 +30,12 @@ public class DebitCard {
     @NotNull
     @Size(min = 8)
     private String numberCard;
+    private Boolean hasWallet;
 
     @Transient
     private List<BankAccount> bankAccounts;
     public DebitCard() {
         this.bankAccounts = new ArrayList<>();
+        this.hasWallet = false;
     }
 }

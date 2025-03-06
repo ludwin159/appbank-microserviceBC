@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 
 @Component
 public class CreditCardBillingScheduler {
-    private final static Logger log = LoggerFactory.getLogger(CreditCardBillingScheduler.class);
+    private static final Logger log = LoggerFactory.getLogger(CreditCardBillingScheduler.class);
     private final CreditCardRepository creditCardRepository;
     private final ConsumptionServiceClient consumptionServiceClient;
 
@@ -91,8 +91,6 @@ public class CreditCardBillingScheduler {
 
                     creditCard.setTotalDebt(creditCard.getTotalDebt() + newDebt);
 
-//                    creditCard.setAvailableBalance(creditCard.getAvailableBalance() - newDebt);
-
                     LocalDate newDueDate = today.plusMonths(1)
                             .withDayOfMonth(Integer.parseInt(creditCard.getNumberDueDate()));
                     creditCard.setDueDate(newDueDate);
@@ -107,7 +105,7 @@ public class CreditCardBillingScheduler {
     private Mono<CreditCard> applyOverduePenalty(CreditCard creditCard) {
         double interestPenalty = 0.15;
         double dailyInterest = interestPenalty / 30;
-        double penalty = Numbers.redondear(creditCard.getTotalDebt() * dailyInterest);
+        double penalty = Numbers.round(creditCard.getTotalDebt() * dailyInterest);
 
         creditCard.setTotalDebt(creditCard.getTotalDebt() + penalty);
 

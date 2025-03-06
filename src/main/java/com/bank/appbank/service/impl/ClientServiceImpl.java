@@ -11,19 +11,34 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.List;
 import static com.bank.appbank.model.Client.TypeClient.*;
 
 @Service
 public class ClientServiceImpl extends ServiceGenImp<Client, String> implements ClientService {
 
+    private final ClientRedisService redisTemplate;
+    private final String clientKeyPrefix = "client:";
+
     @Override
     protected Class<Client> getEntityClass() {
         return Client.class;
     }
 
-    public ClientServiceImpl(RepositoryFactory repositoryFactory) {
+    public ClientServiceImpl(RepositoryFactory repositoryFactory,
+                             ClientRedisService redisTemplate) {
         super(repositoryFactory);
+        this.redisTemplate = redisTemplate;
+    }
+
+    @Override
+    public Mono<Client> findById(String id) {
+        String redisKey = clientKeyPrefix + id;
+        return redisTemplate.get(redisKey)
+                .switchIfEmpty(super.findById(id))
+                .flatMap(client -> redisTemplate.save(redisKey, client, Duration.ofHours(1))
+                        .thenReturn(client));
     }
 
     @Override
@@ -36,7 +51,10 @@ public class ClientServiceImpl extends ServiceGenImp<Client, String> implements 
                     clientFound.setBusinessName(client.getBusinessName());
                     clientFound.setAddress(client.getAddress());
                     clientFound.setPhone(client.getPhone());
-                    return getRepository().save(clientFound);
+                    return getRepository().save(clientFound)
+                            .doOnSuccess(updatedClient ->
+                                    redisTemplate.delete(clientKeyPrefix +id)
+                                            .thenReturn(updatedClient));
                 })
                 .switchIfEmpty(Mono.error(new ResourceNotFoundException("Client not found")));
     }
@@ -46,7 +64,11 @@ public class ClientServiceImpl extends ServiceGenImp<Client, String> implements 
         return isClientValid(clientNew)
                 .flatMap(value -> {
                     if (value.equals("NOT_EXISTS"))
-                        return getRepository().save(clientNew);
+                        return getRepository().save(clientNew)
+                                .doOnSuccess(client ->
+                                        redisTemplate.save(clientKeyPrefix +client.getId(),
+                                                        client, Duration.ofHours(1))
+                                                .thenReturn(client));
                     return Mono.error(new ClientAlreadyExist("The client already exist in the data base"));
                 });
     }

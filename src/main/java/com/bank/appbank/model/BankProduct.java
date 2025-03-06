@@ -16,7 +16,7 @@ public abstract class BankProduct {
     @Indexed
     protected String idClient;
 
-    public BankProduct(String idClient) {
+    protected BankProduct(String idClient) {
         this.idClient = idClient;
     }
 }

@@ -13,7 +13,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @WebFluxTest(CreditController.class)

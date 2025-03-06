@@ -2,6 +2,7 @@ package com.bank.appbank.service.impl;
 
 import com.bank.appbank.client.ConsumptionServiceClient;
 import com.bank.appbank.client.PaymentServiceClient;
+import com.bank.appbank.dto.ConsumptionDto;
 import com.bank.appbank.exceptions.IneligibleClientException;
 import com.bank.appbank.exceptions.ResourceNotFoundException;
 import com.bank.appbank.factory.RepositoryFactory;
@@ -24,12 +25,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.*;
+import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class CreditCardServiceImpTest {
@@ -60,7 +61,6 @@ class CreditCardServiceImpTest {
 
     @BeforeEach
     void setUp() {
-        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
 
         payment1 = new PaymentDto();
         payment1.setId("PAYMENT001");
@@ -111,6 +111,7 @@ class CreditCardServiceImpTest {
     void findById() {
         String creditCardId = "CREDIT_CARD001";
         // Given
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
         when(creditCardRepository.findById(creditCardId)).thenReturn(Mono.just(creditCard1));
         when(paymentService.findAllPaymentByIdProductCreditAndSortByDate(creditCardId))
                 .thenReturn(Flux.just(payment1, payment2));
@@ -133,6 +134,7 @@ class CreditCardServiceImpTest {
     void createCreditCardTest() {
         String idClient = "clientN001";
         // Given
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
         when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
         when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
         when(clientRepository.findById(idClient)).thenReturn(Mono.just(personalClient));
@@ -153,7 +155,6 @@ class CreditCardServiceImpTest {
         String idClient = "clientN001";
         // Given
         when(clientRepository.findById(idClient)).thenReturn(Mono.error(new ResourceNotFoundException("")));
-        when(creditCardRepository.save(creditCard1)).thenReturn(Mono.just(creditCard1));
         // WHen
         Mono<CreditCard> creditCardMono = creditCardService.create(creditCard1);
         // Then
@@ -175,6 +176,7 @@ class CreditCardServiceImpTest {
         creditCardNew.setNumberBillingDate("20");
         creditCardNew.setNumberDueDate("5");
         // Given
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
         when(creditCardRepository.findById("CREDIT_CARD001")).thenReturn(Mono.just(creditCard1));
         when(creditCardRepository.save(any(CreditCard.class))).thenReturn(Mono.just(creditCardNew));
         // WHen
@@ -192,6 +194,7 @@ class CreditCardServiceImpTest {
     void updateCreditCardWhenNotExistsTest() {
         String idClient = "clientN001";
         // Given
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
         when(creditCardRepository.findById(idClient)).thenReturn(Mono.error(new ResourceNotFoundException("")));
         // WHen
         Mono<CreditCard> creditCardMono = creditCardService.update("clientN001", creditCard1);
@@ -206,6 +209,7 @@ class CreditCardServiceImpTest {
     void allCreditCardsByIdClientWithPaymentAndConsumption() {
 
         String idClient = "clientN001";
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
         when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
         when(paymentService.findAllPaymentByIdProductCreditAndSortByDate(creditCard1.getId()))
                 .thenReturn(Flux.just(payment2, payment2));
@@ -217,33 +221,97 @@ class CreditCardServiceImpTest {
                         && creditCard.getConsumptions().isEmpty())
                 .verifyComplete();
     }
-/*
+
     @Test
-    @DisplayName("Create a credit card with client with credit due date")
-    void createCreditCardWithDueDate() {
+    @DisplayName("Get last ten Payments and consumptions by client id")
+    void getLastTenPaymentsAndConsumptionsByIdClientTest() {
+        String idClient = personalClient.getId();
+        List<String> idCreditCards = List.of(creditCard1.getId());
+        ConsumptionDto consumption1 = new ConsumptionDto();
+        consumption1.setId("CONSUMPTION_1");
+        consumption1.setAmount(20.0);
+        consumption1.setCreatedAt(LocalDateTime.now());
+        consumption1.setIdCreditCard("CREDIT_CARD001");
+        consumption1.setDescription("Consumo en Plaza Vea");
+        payment1.setCreatedAt(LocalDateTime.now());
+        // Given
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
+        when(paymentService.lastTenPaymentsByIdCreditCard(idCreditCards)).thenReturn(Mono.just(List.of(payment1)));
+        when(consumptionService.findLastTenConsumptions(idCreditCards)).thenReturn(Mono.just(List.of(consumption1)));
+        // When
+        Mono<List<Object>> tenMovements = creditCardService.getLastTenPaymentsAndConsumptionsByIdClient(idClient);
+        // Then
+        StepVerifier.create(tenMovements)
+                .assertNext(report -> {
+                    assertThat(report).isNotNull();
+                    assertThat(report).hasSize(2);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Create a credit card with client with credit card due date")
+    void createCreditCardWithDueDateInCreditCard() {
 
         String idClient = "clientN001";
-//        ZoneId zone = ZoneId.of("UTC");
-//        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
-//        Clock fixedClock = Clock.fixed(instant, zone);
-//        creditCard1.setTotalDebt(1000.0);
-//        creditCard1.setDueDate(LocalDate.of(2025, 1, 5));
-//        creditCard1.setIdClient(idClient);
-//
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+        creditCard1.setTotalDebt(1000.0);
+        creditCard1.setDueDate(LocalDate.of(2025, 1, 5));
+        creditCard1.setIdClient(idClient);
+
         CreditCard creditCard = new CreditCard();
         creditCard.setId("CREDIT_CARD002");
         creditCard.setIdClient(idClient);
         creditCard.setLimitCredit(1000.0);
         creditCard.setAvailableBalance(500.0);
-//
-//        when(clock.instant()).thenReturn(fixedClock.instant());
-//        when(clock.getZone()).thenReturn(fixedClock.getZone());
+        creditCard.setNumberDueDate("5");
+        creditCard.setNumberBillingDate("20");
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
         when(clientRepository.findById(idClient)).thenReturn(Mono.just(personalClient));
-//        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
-//        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient)).thenReturn(Flux.empty());
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.just(creditCard1));
 
         StepVerifier.create(creditCardService.create(creditCard))
                 .expectError(IneligibleClientException.class)
                 .verify();
-    }*/
+    }
+
+    @Test
+    @DisplayName("Create a credit card with client with credit due date")
+    void createCreditCardWithDueDateInOnlyCredit() {
+
+        String idClient = "clientN001";
+        ZoneId zone = ZoneId.of("UTC");
+        Instant instant = Instant.parse("2025-02-20T23:55:00Z");
+        Clock fixedClock = Clock.fixed(instant, zone);
+
+        credit1.setDisbursementDate(LocalDate.of(2025, 1, 15));
+        credit1.setFirstDatePay(LocalDate.of(2025, 2, 5));
+        credit1.setIdClient(idClient);
+        credit1.setPayments(Collections.emptyList());
+
+        CreditCard creditCard = new CreditCard();
+        creditCard.setId("CREDIT_CARD002");
+        creditCard.setIdClient(idClient);
+        creditCard.setLimitCredit(1000.0);
+        creditCard.setAvailableBalance(500.0);
+        creditCard.setNumberDueDate("5");
+        creditCard.setNumberBillingDate("20");
+        when(repositoryFactory.getRepository(any())).thenReturn(creditCardRepository);
+        when(clock.instant()).thenReturn(fixedClock.instant());
+        when(clock.getZone()).thenReturn(fixedClock.getZone());
+        when(clientRepository.findById(idClient)).thenReturn(Mono.just(personalClient));
+        when(creditService.allCreditsByIdClientWithAllPaymentsSortedByDatePayment(idClient))
+                .thenReturn(Flux.just(credit1));
+        when(creditCardRepository.findAllByIdClient(idClient)).thenReturn(Flux.empty());
+
+        StepVerifier.create(creditCardService.create(creditCard))
+                .expectError(IneligibleClientException.class)
+                .verify();
+    }
 }

@@ -1,8 +1,10 @@
 package com.bank.appbank.service;
 
 import com.bank.appbank.dto.MovementDto;
+import com.bank.appbank.dto.ResponseAssociationWalletDto;
 import com.bank.appbank.model.BankAccountDebitCard;
 import com.bank.appbank.model.DebitCard;
+import com.bank.appbank.model.MovementWallet;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -16,4 +18,7 @@ public interface DebitCardService extends ServiceT<DebitCard, String> {
     Mono<Void> deleteDebitCard(String id);
     Mono<BankAccountDebitCard> addBankAccountToDebitCard(BankAccountDebitCard bankAccountDebitCard);
     Mono<DebitCard> findByIdWithBankAccountsOrderByCreatedAt(String idDebitCard);
+    Mono<ResponseAssociationWalletDto> validAssociationWalletToDebitCard(String idWallet, String idDebitCard);
+
+    Mono<Void> paymentWalletWithDebitCard(List<MovementWallet> movementsWallet);
 }

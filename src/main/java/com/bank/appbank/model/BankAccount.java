@@ -1,12 +1,10 @@
 package com.bank.appbank.model;
 
-import com.bank.appbank.dto.BankTransferDto;
 import com.bank.appbank.dto.MovementDto;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Transient;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import javax.validation.constraints.*;

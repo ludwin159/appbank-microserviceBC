@@ -1,9 +1,6 @@
 package com.bank.appbank.service.scheduler;
 
-import com.bank.appbank.model.BankAccount;
-import com.bank.appbank.model.Client;
 import com.bank.appbank.repository.BankAccountRepository;
-import com.bank.appbank.repository.ClientRepository;
 import com.bank.appbank.repository.CreditCardRepository;
 import com.bank.appbank.repository.CreditRepository;
 import com.bank.appbank.service.DailyBalanceService;
@@ -11,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import java.time.Duration;

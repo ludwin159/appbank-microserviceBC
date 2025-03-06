@@ -1,6 +1,7 @@
 package com.bank.appbank.service.impl;
 
 import com.bank.appbank.client.MovementServiceClient;
+import com.bank.appbank.event.producer.BankAccountProducer;
 import com.bank.appbank.exceptions.*;
 import com.bank.appbank.factory.RepositoryFactory;
 import com.bank.appbank.model.BankAccount;
@@ -11,6 +12,7 @@ import com.bank.appbank.model.CreditCard;
 import com.bank.appbank.repository.BankAccountRepository;
 import com.bank.appbank.repository.CreditCardRepository;
 import com.bank.appbank.repository.CreditRepository;
+import com.bank.appbank.repository.DebitCardRepository;
 import com.bank.appbank.service.BankAccountService;
 import com.bank.appbank.service.ClientService;
 import com.bank.appbank.service.CreditService;
@@ -22,10 +24,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,6 +39,8 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
     private final MovementServiceClient movementServiceClient;
     private final CreditCardRepository creditCardRepository;
     private final CreditService creditService;
+    private final BankAccountProducer bankAccountProducer;
+    private final DebitCardRepository debitCardRepository;
     private Clock clock;
 
     public BankAccountServiceImp(RepositoryFactory repositoryFactory,
@@ -47,12 +48,16 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
                                  MovementServiceClient movementServiceClient,
                                  CreditCardRepository creditCardRepository,
                                  Clock clock,
-                                 CreditService creditService) {
+                                 CreditService creditService,
+                                 BankAccountProducer bankAccountProducer,
+                                 DebitCardRepository debitCardRepository) {
         super(repositoryFactory);
         this.clientService = clientService;
         this.movementServiceClient = movementServiceClient;
         this.creditCardRepository = creditCardRepository;
         this.creditService = creditService;
+        this.bankAccountProducer = bankAccountProducer;
+        this.debitCardRepository = debitCardRepository;
         this.clock = clock;
     }
 
@@ -304,7 +309,18 @@ public class BankAccountServiceImp extends ServiceGenImp<BankAccount, String> im
                     }
                     BankAccount updatedBankAccount = updateFilesBankAccount(accountFound, bankAccount);
                     return getRepository().save(updatedBankAccount);
-                });
+                })
+                .flatMap(savedAccount ->
+                    debitCardRepository.findAllByIdPrincipalAccount(bankAccount.getId())
+                            .map(debitCard -> {
+                                if (debitCard.getHasWallet()) {
+                                    bankAccountProducer
+                                            .publishBalanceUpdate(debitCard.getId(), savedAccount.getBalance());
+                                }
+                                return Mono.empty();
+                            })
+                            .then(Mono.just(savedAccount))
+                );
     }
 
     private boolean isChangeClient(BankAccount bankAccount1, BankAccount bankAccount2) {

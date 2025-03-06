@@ -64,7 +64,6 @@ public class CreditServiceImp extends ServiceGenImp<Credit, String> implements C
                 .switchIfEmpty(Mono.error(
                         new ResourceNotFoundException("The Credit with id: " + id + " doesn't exist!")))
                 .flatMap(creditFound -> {
-//                    creditFound.setIdClient(credit.getIdClient());
                     creditFound.setPendingBalance(credit.getPendingBalance());
                     creditFound.setInterestRate(credit.getInterestRate());
                     creditFound.setTotalAmount(credit.getTotalAmount());
@@ -96,7 +95,7 @@ public class CreditServiceImp extends ServiceGenImp<Credit, String> implements C
         Mono<Client> clientFound = clientService.findById(credit.getIdClient())
                 .flatMap(client -> validateIfClientHasOverDueCredit(client.getId())
                         .flatMap(isValidClient -> Mono.just(client)))
-                .onErrorResume(ResourceNotFoundException.class, (exception) ->
+                .onErrorResume(ResourceNotFoundException.class, exception ->
                         Mono.error(new ResourceNotFoundException(
                                 "The Client with id: " + credit.getIdClient() + " doesn't exist!")));
 
@@ -128,7 +127,7 @@ public class CreditServiceImp extends ServiceGenImp<Credit, String> implements C
     private double generateMonthlyFee(double totalAmount, double interestRate, int totalMonth) {
         double interestRateMonthly = interestRate/totalMonth;
         double result = (totalAmount * interestRateMonthly) / (1 - Math.pow(1 + interestRateMonthly, -totalMonth));
-        return Numbers.redondear(result);
+        return Numbers.round(result);
     }
 
     private Mono<Credit> validCredit(Credit credit) {

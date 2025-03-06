@@ -65,16 +65,12 @@ public class CreditCardServiceImp extends ServiceGenImp<CreditCard, String> impl
     @Override
     public Mono<CreditCard> create(CreditCard creditCard) {
         return clientRepository.findById(creditCard.getIdClient())
-                .flatMap(client -> {
-                    System.out.println(client);
-                    return validateIfClientHasOverDueCredit(client.getId())
-                            .flatMap(isValidClient -> setNumbersBillingAndDueDate(creditCard));
-                })
-                .onErrorResume(ResourceNotFoundException.class, ex ->
-                        Mono.error(
-                                new ResourceNotFoundException(
-                                        "The client with id: "+ creditCard.getIdClient() +" does not exit.")))
-                .then(super.create(creditCard));
+                .switchIfEmpty(Mono.error(
+                        new ResourceNotFoundException(
+                                "The client with id: "+ creditCard.getIdClient() +" does not exit.")))
+                .flatMap(client -> validateIfClientHasOverDueCredit(client.getId())
+                            .flatMap(isValidClient -> setNumbersBillingAndDueDate(creditCard)))
+                .flatMap(creditCard1 ->  super.create(creditCard));
     }
 
     private Mono<CreditCard> loadPaymentAndConsumption(CreditCard creditCard) {
@@ -162,7 +158,7 @@ public class CreditCardServiceImp extends ServiceGenImp<CreditCard, String> impl
     }
 
     private boolean isOverdueCreditOnly(Credit credit) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         int numberMonth = today.getMonthValue();
         int numberYear = today.getYear();
 

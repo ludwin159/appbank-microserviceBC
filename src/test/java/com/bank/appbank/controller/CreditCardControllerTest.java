@@ -1,6 +1,5 @@
 package com.bank.appbank.controller;
 
-import com.bank.appbank.model.Credit;
 import com.bank.appbank.model.CreditCard;
 import com.bank.appbank.service.CreditCardService;
 import org.junit.jupiter.api.Test;
@@ -11,7 +10,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @WebFluxTest(CreditCardController.class)
